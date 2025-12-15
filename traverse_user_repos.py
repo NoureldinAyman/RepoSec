@@ -13,7 +13,7 @@ SKIP_EXTS = {
 
 
 def gh_get(url, params=None):
-    # GET helper: adds token (if set) and handles rate limits.
+    # GET helper with optional token + basic rate limit handling.
     headers = {"Accept": "application/vnd.github+json"}
 
     token = os.getenv("GITHUB_TOKEN")
@@ -41,7 +41,7 @@ def list_repos(username):
 
 
 def list_contents(owner, repo, path="", branch=None):
-    # Get files/folders at a repo path, optionally for a specific branch.
+    # Get repo contents at a path, optionally for a specific branch.
     url = f"{API}/repos/{owner}/{repo}/contents/{path}".rstrip("/")
     params = {"ref": branch} if branch else None
     r = gh_get(url, params=params)
@@ -49,7 +49,7 @@ def list_contents(owner, repo, path="", branch=None):
 
 
 def should_scan(path):
-    # Return False for obvious binaries and build/vendor folders.
+    # Basic filter for binaries and common build/vendor folders.
     lower = path.lower()
 
     if "/node_modules/" in lower or "/dist/" in lower or "/build/" in lower:
