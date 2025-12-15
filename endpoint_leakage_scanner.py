@@ -4,6 +4,7 @@ from requests.exceptions import Timeout, ConnectionError
 
 from traverse_user_repos import list_repos, iter_repo_files, should_scan
 from endpoint_extractors import extract_endpoints
+from RepoSec.endpoint_severity import severity_for_url, severity_for_ip, severity_for_host
 
 
 def fetch_text(url, max_bytes=2_000_000):
@@ -18,15 +19,18 @@ def fetch_text(url, max_bytes=2_000_000):
 
 
 def print_hits(label, line_no, extracted):
-    # Print extracted endpoints with file label and line number.
+    # Print extracted endpoints with severity, location, and classification reason.
     for url in extracted["urls"]:
-        print(f"[URL]  {label}:{line_no}  {url}")
+        sev, reason = severity_for_url(url)
+        print(f"[{sev}] URL  {label}:{line_no}  {url}  ({reason})")
 
     for ip in extracted["ipv4"]:
-        print(f"[IP]   {label}:{line_no}  {ip}")
+        sev, reason = severity_for_ip(ip)
+        print(f"[{sev}] IP   {label}:{line_no}  {ip}  ({reason})")
 
     for host in extracted["internal_hosts"]:
-        print(f"[HOST] {label}:{line_no}  {host}")
+        sev, reason = severity_for_host(host)
+        print(f"[{sev}] HOST {label}:{line_no}  {host}  ({reason})")
 
 
 def scan_text(text, label):
@@ -37,7 +41,6 @@ def scan_text(text, label):
         if not extracted["urls"] and not extracted["ipv4"] and not extracted["internal_hosts"]:
             continue
 
-        # Keep output a bit cleaner if the same thing appears twice on one line.
         extracted["urls"] = list(dict.fromkeys(extracted["urls"]))
         extracted["ipv4"] = list(dict.fromkeys(extracted["ipv4"]))
         extracted["internal_hosts"] = list(dict.fromkeys(extracted["internal_hosts"]))
@@ -46,7 +49,7 @@ def scan_text(text, label):
 
 
 def main():
-    # Scan a user's repos and print URL/IP/host candidates with line numbers.
+    # Scan a user's repos and print URL/IP/host candidates with severity + line numbers.
     if len(sys.argv) < 2:
         print("Usage: python endpoint_leakage_scanner.py <github_username> [--main-only]")
         return 2
