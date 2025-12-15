@@ -1,18 +1,34 @@
 import subprocess
 
 
-def get_all_commits():
+def _run_git_command(args: list[str]) -> str:
     """
-    Returns a list of all commit hashes in the repository.
+    Run a git command and return stdout text. Raises RuntimeError on failure.
     """
     result = subprocess.run(
-        ["git", "rev-list", "--all"],
+        ["git", *args],
         capture_output=True,
         text=True
     )
-
     if result.returncode != 0:
-        raise RuntimeError("Failed to retrieve git commit history")
+        err = (result.stderr or "").strip()
+        raise RuntimeError(f"Git command failed: git {' '.join(args)}\n{err}")
+    return result.stdout
 
-    commits = result.stdout.strip().split("\n")
+
+def get_all_commits() -> list[str]:
+    """
+    Returns a list of all commit hashes in the repository.
+    """
+    out = _run_git_command(["rev-list", "--all"])
+    commits = [c for c in out.strip().split("\n") if c.strip()]
     return commits
+
+
+def get_files_in_commit(commit_hash: str) -> list[str]:
+    """
+    Returns a list of file paths that exist in the given commit.
+    """
+    out = _run_git_command(["ls-tree", "-r", "--name-only", commit_hash])
+    files = [f for f in out.strip().split("\n") if f.strip()]
+    return files
