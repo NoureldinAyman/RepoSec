@@ -1,14 +1,34 @@
-# Endpoint Leakage Scanner
+# Secret / Token Scanner (Feature 1)
 
-This feature scans a repository’s **source code and text files** to detect **exposed endpoints** that may leak internal infrastructure details or sensitive URLs. It focuses on three common leakage types:
+This feature scans repository files for **hardcoded secrets and access tokens** using a set of practical regex patterns (no entropy analysis). It is intended to catch common credential mistakes early (before code is merged or deployed).
 
-* **URLs** (e.g., `https://api.example.com`, `http://admin.corp.local`)
-* **IPv4 addresses** (e.g., `192.168.1.10`, `169.254.169.254`)
-* **Internal hostnames/domains** (e.g., `admin.corp.local`, `service.internal`)
+### What it detects (examples)
 
-### Why it matters
+The scanner looks for recognizable token formats such as:
 
-Exposed endpoints can help attackers map environments (internal networks, staging systems, admin panels) or identify high-value targets (cloud metadata services). This feature highlights those indicators early so they can be removed, masked, or moved into safer configuration.
+* **Hugging Face tokens** : `hf_...`
+* **GitHub tokens** : `ghp_...`, `github_pat_...`
+* **GitLab tokens** : `glpat-...`
+* **Slack tokens** : `xoxb-...`, `xoxp-...`, etc.
+* **AWS Access Key IDs** : `AKIA...`
+* **Google API keys** : `AIza...`
+* **Stripe secret keys** : `sk_test_...`, `sk_live_...`
+* **SendGrid keys** : `SG....`
+* **Private key headers** : `-----BEGIN ... PRIVATE KEY-----`
+
+The scanner prints masked values for safety (it does not print full secrets).
+
+---
+
+## Why it matters
+
+Hardcoded credentials are one of the fastest ways to lose control of:
+
+* cloud accounts,
+* third-party services (Stripe, SendGrid, Slack),
+* internal environments and admin tooling.
+
+Even if a token is “test-only,” public exposure can still cause abuse (quota theft, account lockouts, reputation risk).
 
 ---
 
@@ -16,28 +36,31 @@ Exposed endpoints can help attackers map environments (internal networks, stagin
 
 1. Traverses a user’s GitHub repositories (public repos) and walks the repository tree.
 2. Downloads eligible text files (skipping common binaries and build/vendor folders).
-3. Scans line-by-line to extract endpoint candidates and reports:
+3. Scans line-by-line using regex patterns.
+4. Reports findings with:
+   * token type
+   * severity
    * file path + line number
-   * endpoint value (URL/IP/hostname)
-   * severity + reason
+   * masked value
+5. Prints an end-of-run summary and exits non-zero if high-risk secrets are found.
 
 ---
 
-## Severity model (simple)
+## Severity model
 
 * **HIGH**
-  * Cloud metadata IP: `169.254.169.254`
-  * URLs containing credential-like query parameters (e.g., `?token=...`, `?apikey=...`)
-  * URLs pointing to internal IP ranges (private/loopback/link-local)
+  * tokens that grant direct access (GitHub, Hugging Face, Stripe, SendGrid, Slack, npm, PyPI)
+  * private key headers
 * **MEDIUM**
-  * Private IPs (RFC1918): `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
-  * Loopback: `127.0.0.0/8`
-  * Link-local: `169.254.0.0/16`
-  * Internal-looking hostnames (e.g., `.local`, `.internal`, `.corp`)
+  * identifiers that may indicate cloud credential usage (e.g., AWS Access Key ID)
+  * API keys that may be environment-dependent (e.g., Google API keys)
 * **LOW**
-  * Public URLs and public IPs without suspicious context
+  * reserved for future tuning (not heavily used in the current rules)
 
-This is intentionally conservative and can be refined as the project evolves.
+Exit code policy:
+
+* exits with code **1** if any **HIGH** finding is detected
+* exits with **0** otherwise
 
 ---
 
@@ -54,18 +77,18 @@ pip install requests
 Scan each repo’s default branch:
 
 ```powershell
-python endpoint_leakage_scanner.py <github_username>
+python token_scanner.py <github_username>
 ```
 
 Scan only the `main` branch:
 
 ```powershell
-python endpoint_leakage_scanner.py <github_username> --main-only
+python token_scanner.py <github_username> --main-only
 ```
 
 ### Optional: GitHub token (recommended)
 
-If you hit rate limits, set a GitHub token to increase API limits:
+If you hit rate limits, set a GitHub token:
 
 ```powershell
 $env:GITHUB_TOKEN="YOUR_TOKEN_HERE"
@@ -77,21 +100,21 @@ $env:GITHUB_TOKEN="YOUR_TOKEN_HERE"
 
 ```
 == user/repo (branch: main) ==
-[MEDIUM] HOST user/repo:README.md:12  admin.corp.local  (internal-hostname)
-[MEDIUM] IP   user/repo:config.yml:5  192.168.1.10      (private)
-[HIGH]   URL  user/repo:app.py:44     http://169.254.169.254/latest/meta-data/ (url-to-metadata)
+[HIGH] GitHub token (ghp_) at user/repo:src/auth.py:12  value=ghp_...9Xk2
+[MEDIUM] Google API key at user/repo:firebase-config.js:8  value=AIza...s0rM
 
 === Summary ===
-high=1 medium=2 low=0 total=3
+repos:         6
+files seen:    240
+files scanned: 180
+skipped:       filtered=40 large=5 timeout=10 conn=3 http=2
+hits:          total=2 high=1 medium=1 low=0
 ```
-
-The process exits with code **1** if any **HIGH** findings are detected (useful for CI later), otherwise  **0** .
 
 ---
 
 ## Files
 
-* `endpoint_extractors.py` — regex extraction + normalization
-* `endpoint_severity.py` — classification + severity scoring
-* `endpoint_leakage_scanner.py` — traversal integration + reporting + summary
-* `test_endpoint_leakage.py` — basic extraction/severity test
+* `traverse_user_repos.py` — GitHub traversal + branch selection + filtering
+* `token_scanner.py` — token patterns, scanning, severity, summary
+* `test_token_scanner.py` — basic regex/masking tests
