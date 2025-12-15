@@ -3,7 +3,8 @@ from pathlib import Path
 import re
 from typing import List
 import requests
-
+import json
+import os
 
 @dataclass
 class Dependency:
@@ -74,3 +75,23 @@ def scan_requirements_for_vulns(path: str = "requirements.txt") -> list[VulnMatc
     for dep in deps:
         all_matches.extend(query_osv_for_dependency(dep))
     return all_matches
+
+def export_deps_findings_json(matches: list[VulnMatch], output_path: str) -> None:
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    data = {
+        "feature": "dependency_vuln",
+        "count": len(matches),
+        "findings": [
+            {
+                "dependency": m.dependency.name,
+                "version": m.dependency.version,
+                "vuln_id": m.vuln_id,
+                "summary": m.summary,
+            }
+            for m in matches
+        ],
+    }
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
