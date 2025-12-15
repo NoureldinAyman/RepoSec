@@ -1,4 +1,4 @@
-# RepoSec
+# Endpoint Leakage Scanner
 
 This feature scans a repository’s **source code and text files** to detect **exposed endpoints** that may leak internal infrastructure details or sensitive URLs. It focuses on three common leakage types:
 
@@ -88,8 +88,6 @@ high=1 medium=2 low=0 total=3
 The process exits with code **1** if any **HIGH** findings are detected (useful for CI later), otherwise  **0** .
 
 ---
-
-
 
 ## Files
 
