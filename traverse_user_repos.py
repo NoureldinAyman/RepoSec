@@ -62,7 +62,7 @@ def should_scan(path):
 
 
 def iter_repo_files(owner, repo, path="", branch=None):
-    # Yield file items (path + download_url) by walking repo directories.
+    # Yield file items by walking repo directories.
     items = list_contents(owner, repo, path, branch=branch)
 
     if isinstance(items, dict) and items.get("type") == "file":

@@ -7,18 +7,18 @@ from traverse_user_repos import list_repos, iter_repo_files, should_scan
 
 
 PATTERNS = [
-    ("Hugging Face token", re.compile(r"\bhf_[A-Za-z0-9]{20,}\b")),
-    ("GitHub token (ghp_)", re.compile(r"\bghp_[A-Za-z0-9]{36}\b")),
-    ("GitHub token (github_pat_)", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b")),
-    ("GitLab token (glpat-)", re.compile(r"\bglpat-[A-Za-z0-9_-]{20,}\b")),
-    ("Slack token (xox*)", re.compile(r"\bxox[baprsco]-[A-Za-z0-9-]{10,}\b")),
-    ("AWS Access Key ID", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
-    ("Google API key", re.compile(r"\bAIza[0-9A-Za-z\-_]{35}\b")),
-    ("Stripe secret key", re.compile(r"\bsk_(live|test)_[0-9a-zA-Z]{16,}\b")),
-    ("SendGrid API key", re.compile(r"\bSG\.[A-Za-z0-9_-]{20,}\b")),
-    ("PyPI token", re.compile(r"\bpypi-[A-Za-z0-9]{20,}\b")),
-    ("npm token", re.compile(r"\bnpm_[A-Za-z0-9]{20,}\b")),
-    ("Private key block", re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |)?PRIVATE KEY-----")),
+    ("Hugging Face token", "HIGH", re.compile(r"\bhf_[A-Za-z0-9]{20,}\b")),
+    ("GitHub token (ghp_)", "HIGH", re.compile(r"\bghp_[A-Za-z0-9]{36}\b")),
+    ("GitHub token (github_pat_)", "HIGH", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b")),
+    ("GitLab token (glpat-)", "HIGH", re.compile(r"\bglpat-[A-Za-z0-9_-]{20,}\b")),
+    ("Slack token (xox*)", "HIGH", re.compile(r"\bxox[baprsco]-[A-Za-z0-9-]{10,}\b")),
+    ("AWS Access Key ID", "MEDIUM", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+    ("Google API key", "MEDIUM", re.compile(r"\bAIza[0-9A-Za-z\-_]{35}\b")),
+    ("Stripe secret key", "HIGH", re.compile(r"\bsk_(live|test)_[0-9a-zA-Z]{16,}\b")),
+    ("SendGrid API key", "HIGH", re.compile(r"\bSG\.[A-Za-z0-9_-]{20,}\b")),
+    ("PyPI token", "HIGH", re.compile(r"\bpypi-[A-Za-z0-9]{20,}\b")),
+    ("npm token", "HIGH", re.compile(r"\bnpm_[A-Za-z0-9]{20,}\b")),
+    ("Private key block header", "HIGH", re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |)?PRIVATE KEY-----")),
 ]
 
 
@@ -40,15 +40,32 @@ def fetch_text(url, max_bytes=2_000_000):
     return r.content.decode("utf-8", errors="replace")
 
 
+def severity_rank(level):
+    # Convert severity text to a comparable number.
+    if level == "HIGH":
+        return 3
+    if level == "MEDIUM":
+        return 2
+    return 1
+
+
 def scan_text(text, label):
-    # Scan lines for regex matches and print hits.
+    # Scan lines for regex matches and return highest severity found.
+    highest = 0
+
     for line_no, line in enumerate(text.splitlines(), start=1):
-        for name, rx in PATTERNS:
+        for name, sev, rx in PATTERNS:
             m = rx.search(line)
-            if m:
-                val = m.group(0)
-                shown = val if name == "Private key block" else mask(val)
-                print(f"[hit] {name} at {label}:{line_no}  value={shown}")
+            if not m:
+                continue
+
+            highest = max(highest, severity_rank(sev))
+            val = m.group(0)
+
+            shown = val if name.startswith("Private key block") else mask(val)
+            print(f"[{sev}] {name} at {label}:{line_no}  value={shown}")
+
+    return highest
 
 
 def main():
@@ -61,6 +78,7 @@ def main():
     main_only = "--main-only" in sys.argv[2:]
 
     repos = list_repos(username)
+    overall_highest = 0
 
     for repo in repos:
         owner = repo["owner"]["login"]
@@ -87,12 +105,14 @@ def main():
                 if text is None:
                     continue
 
-                scan_text(text, f"{owner}/{name}:{path}")
+                highest = scan_text(text, f"{owner}/{name}:{path}")
+                overall_highest = max(overall_highest, highest)
 
         except requests.HTTPError as e:
             print(f"  [skip repo] {e}")
 
-    return 0
+    # Exit non-zero if any HIGH severity was found.
+    return 1 if overall_highest >= 3 else 0
 
 
 if __name__ == "__main__":
