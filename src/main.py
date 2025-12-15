@@ -1,6 +1,5 @@
 import argparse
-from src.features.commit_history.history_scanner import scan_git_history
-
+from src.features.commit_history.history_scanner import scan_git_history, export_history_findings_json
 
 def main():
     parser = argparse.ArgumentParser(
@@ -24,6 +23,7 @@ def main():
 
     if args.command == "scan-history":
         findings = scan_git_history()
+        export_history_findings_json(findings, "reports/history_findings.json")
 
         if not findings:
             print("No secrets found in git history.")
@@ -35,8 +35,7 @@ def main():
                 )
 
     elif args.command == "scan-deps":
-        print("Dependency vulnerability scanning not implemented yet.")
-
+        print("Saved report to reports/history_findings.json")
     else:
         print(f"Unknown command: {args.command}")
 
