@@ -32,3 +32,20 @@ def get_files_in_commit(commit_hash: str) -> list[str]:
     out = _run_git_command(["ls-tree", "-r", "--name-only", commit_hash])
     files = [f for f in out.strip().split("\n") if f.strip()]
     return files
+
+def get_file_content_at_commit(commit_hash: str, file_path: str) -> str | None:
+    """
+    Returns the file content as text for a given commit and file path.
+    If the file cannot be read as text (binary) or doesn't exist, returns None.
+    """
+    try:
+        out = _run_git_command(["show", f"{commit_hash}:{file_path}"])
+    except RuntimeError:
+        return None  # file missing in this commit or can't be read
+
+    # Very basic "binary" check: if it contains null bytes, treat as binary
+    if "\x00" in out:
+        return None
+
+    return out
+
