@@ -46,7 +46,7 @@ RepoSec includes 6 core security modules:
    **Bash**
 
    ```
-   git clone [https://github.com/NoureldinAyman/RepoSec.git](https://github.com/NoureldinAyman/RepoSec.git)
+   git clone https://github.com/NoureldinAyman/RepoSec.git
    cd RepoSec
    ```
 2. **Create a Virtual Environment (Recommended)**
