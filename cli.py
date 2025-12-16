@@ -135,26 +135,12 @@ def run_webhook_validator():
 # --- Feature 6: Commit History Scanner ---
 def run_history_scanner():
     print(f"\n{GREEN}[ Feature 6: Insecure Commit History Scanner ]{RESET}")
-    print("Scans git log for sensitive data that was deleted but remains in history.\n")
+    print("Scans git log for rewritten history or removed secrets.\n")
     
-    target_dir = input(f"Enter path to local git repository [default: .]: ").strip() or "."
-    
-    # Check if .git exists in target
-    if not os.path.isdir(os.path.join(target_dir, ".git")):
-        print(f"{RED}Error: No .git directory found in '{target_dir}'. History scan requires a git repo.{RESET}")
-        pause()
-        return
-
-    # Assuming the script is named 'commit_history_scanner.py'
-    cmd = [sys.executable, "commit_history_scanner.py", target_dir]
-    
-    try:
-        print(f"{YELLOW}Scanning commit history in: {target_dir}...{RESET}")
-        subprocess.run(cmd, check=False)
-    except FileNotFoundError:
-        print(f"{RED}Error: 'commit_history_scanner.py' not found.{RESET}")
-    except Exception as e:
-        print(f"{RED}Error: {e}{RESET}")
+    # Placeholder: The script for this was missing in the dump, 
+    # but the branch 'feature/insecure-commit-history' exists.
+    print(f"{YELLOW}[INFO] This feature module is currently missing from the source files.{RESET}")
+    print("Please merge 'feature/insecure-commit-history' or add 'history_scanner.py'.")
     pause()
 
 def interactive_menu():
