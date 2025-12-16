@@ -1,120 +1,168 @@
-# Secret / Token Scanner (Feature 1)
+# RepoSec
 
-This feature scans repository files for **hardcoded secrets and access tokens** using a set of practical regex patterns (no entropy analysis). It is intended to catch common credential mistakes early (before code is merged or deployed).
+RepoSec is a modular cybersecurity toolkit designed to scan Git repositories and local environments for security risks. It detects hardcoded secrets, exposed internal endpoints, vulnerable dependencies, and insecure configurations.
 
-### What it detects (examples)
+```text
+    ____                  _____     
+   / __ \___  ____  ____ / ___/___  _____
+  / /_/ / _ \/ __ \/ __ \\__ \/ _ \/ ___/
+ / _, _/  __/ /_/ / /_/ /__/ /  __/ /__  
+/_/ |_|\___/ .___/\____/____/\___/\___/  
+          /_/                      
+      Security Toolkit CLI
+```
 
-The scanner looks for recognizable token formats such as:
+## Features
 
-* **Hugging Face tokens** : `hf_...`
-* **GitHub tokens** : `ghp_...`, `github_pat_...`
-* **GitLab tokens** : `glpat-...`
-* **Slack tokens** : `xoxb-...`, `xoxp-...`, etc.
-* **AWS Access Key IDs** : `AKIA...`
-* **Google API keys** : `AIza...`
-* **Stripe secret keys** : `sk_test_...`, `sk_live_...`
-* **SendGrid keys** : `SG....`
-* **Private key headers** : `-----BEGIN ... PRIVATE KEY-----`
+RepoSec includes 6 core security modules:
 
-The scanner prints masked values for safety (it does not print full secrets).
+1. **Endpoint Leakage Scanner**
+   * Scans repository code for exposed internal IP addresses (e.g., `192.168.x.x`), internal domains (e.g., `.corp`, `.local`), and sensitive public URLs.
+   * **Severity:** Categorizes findings as High (Metadata services), Medium (Internal IPs), or Low (Public URLs).
+2. **Secret & Token Scanner**
+   * Uses regex patterns to detect hardcoded credentials.
+   * **Detects:** AWS Access Keys, Stripe Keys, GitHub Tokens, Slack Tokens, Private Keys, and more.
+   * **Privacy:** Automatically masks the actual secret values in the output.
+3. **Local .env Auditor**
+   * Checks your *current* working directory.
+   * Ensures `.env` files are present in `.gitignore`.
+   * Detects if `.env` files are located in dangerous public folders (e.g., `public/`, `static/`).
+4. **Dependency Vulnerability Scanner**
+   * Parses `requirements.txt`.
+   * Queries the **OSV.dev** open-source vulnerability database.
+   * Reports known CVEs and security advisories for pinned versions.
+5. **Webhook Signature Validator**
+   * A utility to verify HMAC SHA256 signatures.
+   * Useful for testing if your webhook validation logic matches expected payloads (e.g., from GitHub or Stripe).
+6. **Insecure Commit History Scanner**
+   * Scans the `git log` of a local repository.
+   * Identifies secrets or sensitive data that were deleted from the current codebase but still exist in the project's commit history.
 
 ---
 
-## Why it matters
+## Installation
 
-Hardcoded credentials are one of the fastest ways to lose control of:
+1. **Clone the repository**
+   **Bash**
 
-* cloud accounts,
-* third-party services (Stripe, SendGrid, Slack),
-* internal environments and admin tooling.
+   ```
+   git clone [https://github.com/NoureldinAyman/RepoSec.git](https://github.com/NoureldinAyman/RepoSec.git)
+   cd RepoSec
+   ```
+2. **Create a Virtual Environment (Recommended)**
 
-Even if a token is “test-only,” public exposure can still cause abuse (quota theft, account lockouts, reputation risk).
+   * **Windows:**
+     **Bash**
 
----
+     ```
+     python -m venv venv
+     .\venv\Scripts\activate
+     ```
+   * **Mac/Linux:**
+     **Bash**
 
-## How it works
+     ```
+     python3 -m venv venv
+     source venv/bin/activate
+     ```
+3. **Install Dependencies**
+   **Bash**
 
-1. Traverses a user’s GitHub repositories (public repos) and walks the repository tree.
-2. Downloads eligible text files (skipping common binaries and build/vendor folders).
-3. Scans line-by-line using regex patterns.
-4. Reports findings with:
-   * token type
-   * severity
-   * file path + line number
-   * masked value
-5. Prints an end-of-run summary and exits non-zero if high-risk secrets are found.
-
----
-
-## Severity model
-
-* **HIGH**
-  * tokens that grant direct access (GitHub, Hugging Face, Stripe, SendGrid, Slack, npm, PyPI)
-  * private key headers
-* **MEDIUM**
-  * identifiers that may indicate cloud credential usage (e.g., AWS Access Key ID)
-  * API keys that may be environment-dependent (e.g., Google API keys)
-* **LOW**
-  * reserved for future tuning (not heavily used in the current rules)
-
-Exit code policy:
-
-* exits with code **1** if any **HIGH** finding is detected
-* exits with **0** otherwise
+   ```
+   pip install -r requirements.txt
+   ```
 
 ---
 
-## How to run
+## Usage
 
-### Requirements
+### Interactive CLI (Recommended)
 
-```bash
-pip install requests
-```
+The easiest way to use RepoSec is through the main menu, which provides access to all 6 tools.
 
-### Run scanner
-
-Scan each repo’s default branch:
-
-```powershell
-python token_scanner.py <github_username>
-```
-
-Scan only the `main` branch:
-
-```powershell
-python token_scanner.py <github_username> --main-only
-```
-
-### Optional: GitHub token (recommended)
-
-If you hit rate limits, set a GitHub token:
-
-```powershell
-$env:GITHUB_TOKEN="YOUR_TOKEN_HERE"
-```
-
----
-
-## Output example
+**Bash**
 
 ```
-== user/repo (branch: main) ==
-[HIGH] GitHub token (ghp_) at user/repo:src/auth.py:12  value=ghp_...9Xk2
-[MEDIUM] Google API key at user/repo:firebase-config.js:8  value=AIza...s0rM
+python cli.py
+```
 
-=== Summary ===
-repos:         6
-files seen:    240
-files scanned: 180
-skipped:       filtered=40 large=5 timeout=10 conn=3 http=2
-hits:          total=2 high=1 medium=1 low=0
+Follow the on-screen prompts to select a tool, input target usernames/paths, or configure scan settings.
+
+### Manual Execution (Advanced)
+
+You can run individual modules directly if you need to integrate them into other scripts or CI/CD pipelines.
+
+**Endpoint Scanner:**
+
+**Bash**
+
+```
+python endpoint_leakage_scanner.py <username> [--main-only]
+```
+
+**Token Scanner:**
+
+**Bash**
+
+```
+python token_scanner.py <username> [--main-only]
+```
+
+**Dependency Scanner:**
+
+**Bash**
+
+```
+python -m src.main scan-deps
+```
+
+**Commit History Scanner:**
+
+**Bash**
+
+```
+python commit_history_scanner.py <path_to_local_repo>
 ```
 
 ---
 
-## Files
+## Understanding the Output
 
-* `traverse_user_repos.py` — GitHub traversal + branch selection + filtering
-* `token_scanner.py` — token patterns, scanning, severity, summary
-* `test_token_scanner.py` — basic regex/masking tests
+When running scanners, you will see a summary line like this:
+
+scanned=5 skipped=0 hits(H/M/L)=7/0/0
+
+### 1. File Counts
+
+* **Scanned:** The number of files successfully downloaded and analyzed.
+* **Skipped:** The number of files ignored. Files are skipped if they are binary (images, executables), located in ignored directories (`node_modules`), or exceed the 2MB file size limit.
+
+### 2. Severity Breakdown (H/M/L)
+
+* **H (High):** Critical risk. These require immediate attention (e.g., AWS Secret Keys, Private Keys, Cloud Metadata IPs).
+* **M (Medium):** Moderate risk. Potential exposure or sensitive identifiers (e.g., Internal Hostnames, API IDs).
+* **L (Low):** Informational. Items that should be reviewed but may not be immediate threats (e.g., Public URLs).
+
+---
+
+## Configuration
+
+### GitHub Rate Limits
+
+If scanning large users or organizations, you may hit GitHub API rate limits. To avoid this, set a Personal Access Token:
+
+* **Windows (PowerShell):** `$env:GITHUB_TOKEN="your_token"`
+* **Mac/Linux:** `export GITHUB_TOKEN="your_token"`
+
+### Webhook Validation
+
+For the Webhook Validator tool, you can preset the secret environment variable:
+
+* **Windows (PowerShell):** `$env:WEBHOOK_SECRET="your_secret_key"`
+* **Mac/Linux:** `export WEBHOOK_SECRET="your_secret_key"`
+
+---
+
+## Disclaimer
+
+This tool is intended for **educational purposes only**.
