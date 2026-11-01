@@ -2,6 +2,8 @@
 
 RepoSec is a modular cybersecurity toolkit designed to scan Git repositories and local environments for security risks. It detects hardcoded secrets, exposed internal endpoints, vulnerable dependencies, and insecure configurations.
 
+Built as a team project with Mohamed Nassar and yousseff379.
+
 ```text
     ____                  _____     
    / __ \___  ____  ____ / ___/___  _____
